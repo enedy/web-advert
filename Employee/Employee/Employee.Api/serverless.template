@@ -1,0 +1,154 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Transform": "AWS::Serverless-2016-10-31",
+  "Description": "An AWS Serverless Application that uses the ASP.NET Core framework running in Amazon Lambda.",
+  "Globals": {
+    "Function": {
+      "Runtime": "dotnetcore3.1",
+      "VpcConfig" : {
+          "SecurityGroupIds" : ["sg-0d446059d563e1708"],
+          "SubnetIds" : ["subnet-eb29cbd7", "subnet-dae70b81", "subnet-8819c7c1", "subnet-2e8b6503"]
+      },
+      "Environment": {
+        "Variables": {
+          "OracleConnectionString": "User Id=pontop;Password=Ved0crT;Data Source=(DESCRIPTION = (ADDRESS = (PROTOCOL = TCP)(HOST = 172.30.0.137)(PORT = 1521)) (CONNECT_DATA = (SERVER = DEDICATED) (SID = QADB ) ) );",
+          "SqlServerConnectionString": "Server=tcp:sqlserver-qa.certponto.com.br,1433;Data Source=sqlserver-qa.certponto.com.br;Initial Catalog=CDGServer;Persist Security Info=False;User ID=cdgv2_master;Password=eA8w9TiDsJDl2X8q;MultipleActiveResultSets=True;"
+        }
+      }
+    }
+  },
+  "Parameters": {
+    "Stage": {
+      "Type": "String",
+      "Default": "qa"
+    },
+    "ShouldCreateBucket": {
+      "Type": "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Description": "If true then the S3 bucket that will be proxied will be created with the CloudFormation stack."
+    },
+    "BucketName": {
+      "Type": "String",
+      "Description": "Name of S3 bucket that will be proxied. If left blank a name will be generated.",
+      "MinLength": "0"
+    }
+  },
+  "Conditions": {
+    "CreateS3Bucket": {
+      "Fn::Equals": [
+        {
+          "Ref": "ShouldCreateBucket"
+        },
+        "true"
+      ]
+    },
+    "BucketNameGenerated": {
+      "Fn::Equals": [
+        {
+          "Ref": "BucketName"
+        },
+        ""
+      ]
+    }
+  },
+  "Resources": {
+    "AspNetCoreFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "Employee.Api::Employee.Api.LambdaEntryPoint::FunctionHandlerAsync",
+        "Runtime": "dotnetcore3.1",
+        "CodeUri": "",
+        "MemorySize": 256,
+        "Timeout": 60,
+        "Role": "arn:aws:iam::182134351206:role/lambda",
+        "Policies": [
+          "AWSLambdaFullAccess"
+        ],
+        "Environment": {
+          "Variables": {
+            "AppS3Bucket": {
+              "Fn::If": [
+                "CreateS3Bucket",
+                {
+                  "Ref": "Bucket"
+                },
+                {
+                  "Ref": "BucketName"
+                }
+              ]
+            }
+          }
+        },
+        "Events": {
+          "ProxyResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/{proxy+}",
+              "Method": "ANY",
+              "RestApiId": {
+                "Ref": "ApiDeployment"
+              }
+            }
+          },
+          "RootResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/",
+              "Method": "ANY",
+              "RestApiId": {
+                "Ref": "ApiDeployment"
+              }
+            }
+          }
+        }
+      }
+    },
+    "ApiDeployment": {
+      "Type": "AWS::Serverless::Api",
+      "Properties": {
+        "StageName": "qa"
+      }
+    },
+    "Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Condition": "CreateS3Bucket",
+      "Properties": {
+        "BucketName": {
+          "Fn::If": [
+            "BucketNameGenerated",
+            {
+              "Ref": "AWS::NoValue"
+            },
+            {
+              "Ref": "BucketName"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ApiURL": {
+      "Description": "API endpoint URL for Prod environment",
+      "Value": {
+        "Fn::Sub": "https://${ApiDeployment}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/"
+      }
+    },
+    "S3ProxyBucket": {
+      "Value": {
+        "Fn::If": [
+          "CreateS3Bucket",
+          {
+            "Ref": "Bucket"
+          },
+          {
+            "Ref": "BucketName"
+          }
+        ]
+      }
+    }
+  }
+}
