@@ -3,8 +3,6 @@ using Amazon.Extensions.CognitoAuthentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using WebAdvert.Web.Models.Accounts;
 
@@ -95,13 +93,9 @@ namespace WebAdvert.Web.Controllers
                     false);
 
                 if (result.Succeeded)
-                {
                     return RedirectToAction("Index", "Home");
-                }
                 else if (result.RequiresTwoFactor)
-                {
                     return RedirectToAction("LoginWith2fa");
-                }
 
                 //var isSigned = _signInManager.IsSignedIn(User);
             }
@@ -163,13 +157,24 @@ namespace WebAdvert.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> LoginWith2fa()
         {
-            return View();
+            return View(new LoginWith2faModel());
         }
 
-        //[HttpPost]
-        //public async Task<IActionResult> LoginWith2fa()
-        //{
-        //    return View(new ResetPasswordModel());
-        //}
+        [HttpPost]
+        public async Task<IActionResult> LoginWith2fa(LoginWith2faModel model)
+        {
+            if (!ModelState.IsValid) return View(model);
+
+            var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
+            if (user == null) throw new InvalidOperationException($"Unable to load two-factor authentication user.");
+
+            var authenticatorCode = model.TwoFactorCode.Replace(" ", string.Empty).Replace("-", string.Empty);
+            var result = await _signInManager.TwoFactorAuthenticatorSignInAsync(authenticatorCode, false, model.RememberMachine);
+
+            if (result.Succeeded) return RedirectToAction("Index", "Home");
+
+            ModelState.AddModelError(string.Empty, "Invalid 2FA code.");
+            return View(model);
+        }
     }
 }
