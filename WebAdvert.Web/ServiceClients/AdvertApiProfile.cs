@@ -1,15 +1,15 @@
-﻿//using AdvertApi.Models;
-//using AutoMapper;
+﻿using AutoMapper;
+using WebAdvert.Web.Models.Advert;
 
 namespace WebAdvert.Web.ServiceClients
 {
-    public class AdvertApiProfile// : Profile
+    public class AdvertApiProfile : Profile
     {
         public AdvertApiProfile()
         {
-            //CreateMap<AdvertModel, CreateAdvertModel>().ReverseMap();
-            //CreateMap<CreateAdvertResponse, AdvertResponse>().ReverseMap();
-            //CreateMap<ConfirmAdvertRequest, ConfirmAdvertModel>().ReverseMap();
+            CreateMap<AdvertModel, CreateAdvertModel>().ReverseMap();
+            CreateMap<CreateAdvertResponse, AdvertResponse>().ReverseMap();
+            CreateMap<ConfirmAdvertRequest, ConfirmAdvertModel>().ReverseMap();
         }
     }
 }
